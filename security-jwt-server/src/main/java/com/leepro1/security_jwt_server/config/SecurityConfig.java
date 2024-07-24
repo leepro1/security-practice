@@ -1,7 +1,10 @@
 package com.leepro1.security_jwt_server.config;
 
+import com.leepro1.security_jwt_server.jwt.JWTFilter;
 import com.leepro1.security_jwt_server.jwt.JWTUtil;
 import com.leepro1.security_jwt_server.jwt.LoginFilter;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.Collections;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +16,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -38,6 +43,27 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
+            .cors((cors) -> cors
+                .configurationSource(new CorsConfigurationSource() {
+
+                    @Override
+                    public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
+
+                        CorsConfiguration configuration = new CorsConfiguration();
+
+                        configuration.setAllowedOrigins(Collections.singletonList("http://localhost:3000")); // 허용한 포트
+                        configuration.setAllowedMethods(Collections.singletonList("*")); // 허용할 메서드
+                        configuration.setAllowCredentials(true); // 프론트에서 credentials 을 설정할 때 무조건 true
+                        configuration.setAllowedHeaders(Collections.singletonList("*")); // 허용할 헤더
+                        configuration.setMaxAge(3600L); // 허용을 할 시간??
+
+                        configuration.setExposedHeaders(Collections.singletonList("Authorization"));
+
+                        return configuration;
+                    }
+                })
+            )
+
             .csrf((csrf) -> csrf
                 .disable()
             )
@@ -58,7 +84,12 @@ public class SecurityConfig {
 
             .addFilterAt(
                 new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil),
-                UsernamePasswordAuthenticationFilter.class)
+                UsernamePasswordAuthenticationFilter.class
+            )
+
+            .addFilterBefore(
+                new JWTFilter(jwtUtil), LoginFilter.class
+            )
 
             .sessionManagement((session) -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
