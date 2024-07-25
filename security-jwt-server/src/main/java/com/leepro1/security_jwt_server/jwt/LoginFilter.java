@@ -3,6 +3,8 @@ package com.leepro1.security_jwt_server.jwt;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leepro1.security_jwt_server.dto.CustomUserDetails;
 import com.leepro1.security_jwt_server.dto.LoginDto;
+import com.leepro1.security_jwt_server.entity.Refresh;
+import com.leepro1.security_jwt_server.repository.RefreshRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.Cookie;
@@ -11,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.Date;
 import java.util.Iterator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +30,7 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
 
     private final AuthenticationManager authenticationManager;
     private final JWTUtil jwtUtil;
+    private final RefreshRepository refreshRepository;
 
     @Override
     public Authentication attemptAuthentication(HttpServletRequest request,
@@ -71,6 +75,9 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         String access = jwtUtil.createJwt("access", email, role, 600000L);
         String refresh = jwtUtil.createJwt("refresh", email, role, 86400000L);
 
+        //Refresh 토큰 저장
+        addRefreshEntity(email, refresh, 86400000L);
+
         //응답 설정
         response.setHeader("access", access);
         response.addCookie(createCookie("refresh", refresh));
@@ -86,6 +93,18 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
 //        cookie.setPath("/"); cookie 범위
 
         return cookie;
+    }
+
+    private void addRefreshEntity(String email, String refresh, Long expiredMs) {
+
+        Date date = new Date(System.currentTimeMillis() + expiredMs);
+
+        Refresh refreshEntity = new Refresh();
+        refreshEntity.setEmail(email);
+        refreshEntity.setRefresh(refresh);
+        refreshEntity.setExpiration(date.toString());
+
+        refreshRepository.save(refreshEntity);
     }
 
     //로그인 실패시 실행하는 메소드

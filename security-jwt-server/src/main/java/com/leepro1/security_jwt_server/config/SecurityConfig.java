@@ -3,6 +3,7 @@ package com.leepro1.security_jwt_server.config;
 import com.leepro1.security_jwt_server.jwt.JWTFilter;
 import com.leepro1.security_jwt_server.jwt.JWTUtil;
 import com.leepro1.security_jwt_server.jwt.LoginFilter;
+import com.leepro1.security_jwt_server.repository.RefreshRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class SecurityConfig {
     // AuthenticationManager가 인자로 받을 AuthenticationConfiguraion 객체 생성자 주입
     private final AuthenticationConfiguration authenticationConfiguration;
     private final JWTUtil jwtUtil;
+    private final RefreshRepository refreshRepository;
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration)
@@ -84,7 +86,7 @@ public class SecurityConfig {
             )
 
             .addFilterAt(
-                new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil),
+                new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil, refreshRepository),
                 UsernamePasswordAuthenticationFilter.class
             )
 
