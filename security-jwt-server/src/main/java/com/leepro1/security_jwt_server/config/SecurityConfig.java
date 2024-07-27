@@ -55,13 +55,13 @@ public class SecurityConfig {
 
                         CorsConfiguration configuration = new CorsConfiguration();
 
-                        configuration.setAllowedOrigins(Collections.singletonList("http://localhost:3000")); // 허용한 포트
+                        configuration.setAllowedOrigins(Collections.singletonList("http://localhost:5173")); // 허용한 포트
                         configuration.setAllowedMethods(Collections.singletonList("*")); // 허용할 메서드
                         configuration.setAllowCredentials(true); // 프론트에서 credentials 을 설정할 때 무조건 true
                         configuration.setAllowedHeaders(Collections.singletonList("*")); // 허용할 헤더
                         configuration.setMaxAge(3600L); // 허용을 할 시간??
 
-                        configuration.setExposedHeaders(Collections.singletonList("Authorization"));
+                        configuration.setExposedHeaders(Collections.singletonList("access"));
 
                         return configuration;
                     }
