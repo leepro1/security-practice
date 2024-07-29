@@ -4,12 +4,12 @@ import com.leepro1.security_jwt_server.jwt.CustomLogoutFilter;
 import com.leepro1.security_jwt_server.jwt.JWTFilter;
 import com.leepro1.security_jwt_server.jwt.JWTUtil;
 import com.leepro1.security_jwt_server.jwt.LoginFilter;
-import com.leepro1.security_jwt_server.repository.RefreshRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -30,7 +30,7 @@ public class SecurityConfig {
     // AuthenticationManager가 인자로 받을 AuthenticationConfiguraion 객체 생성자 주입
     private final AuthenticationConfiguration authenticationConfiguration;
     private final JWTUtil jwtUtil;
-    private final RefreshRepository refreshRepository;
+    private final StringRedisTemplate redisTemplate;
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration)
@@ -88,7 +88,7 @@ public class SecurityConfig {
             )
 
             .addFilterAt(
-                new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil, refreshRepository),
+                new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil, redisTemplate),
                 UsernamePasswordAuthenticationFilter.class
             )
 
@@ -97,7 +97,7 @@ public class SecurityConfig {
             )
 
             .addFilterBefore(
-                new CustomLogoutFilter(jwtUtil, refreshRepository), LogoutFilter.class
+                new CustomLogoutFilter(jwtUtil, redisTemplate), LogoutFilter.class
             )
 
             .sessionManagement((session) -> session

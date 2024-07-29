@@ -1,10 +1,7 @@
 package com.leepro1.security_jwt_server.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.leepro1.security_jwt_server.dto.CustomUserDetails;
 import com.leepro1.security_jwt_server.dto.LoginDto;
-import com.leepro1.security_jwt_server.entity.Refresh;
-import com.leepro1.security_jwt_server.repository.RefreshRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.Cookie;
@@ -16,6 +13,8 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,7 +29,7 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
 
     private final AuthenticationManager authenticationManager;
     private final JWTUtil jwtUtil;
-    private final RefreshRepository refreshRepository;
+    private final StringRedisTemplate redisTemplate;
 
     @Override
     public Authentication attemptAuthentication(HttpServletRequest request,
@@ -59,7 +58,7 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         return authenticationManager.authenticate(authToken);
     }
 
-    //로그인 성공시 실행하는 메소드 (여기서 JWT를 발급하면 됨)
+    // 로그인 성공시 실행하는 메소드 (여기서 JWT를 발급하면 됨)
     @Override
     protected void successfulAuthentication(HttpServletRequest request,
         HttpServletResponse response, FilterChain chain, Authentication authentication) {
@@ -71,14 +70,14 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         GrantedAuthority auth = iterator.next();
         String role = auth.getAuthority();
 
-        //토큰 생성
+        // 토큰 생성
         String access = jwtUtil.createJwt("access", email, role, 600000L);
         String refresh = jwtUtil.createJwt("refresh", email, role, 86400000L);
 
-        //Refresh 토큰 저장
-        addRefreshEntity(email, refresh, 86400000L);
+        // Refresh 토큰 저장
+        saveRefreshToken(email, refresh, 86400000L);
 
-        //응답 설정
+        // 응답 설정
         response.setHeader("access", access);
         response.addCookie(createCookie("refresh", refresh));
         response.setStatus(HttpStatus.OK.value());
@@ -95,19 +94,12 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         return cookie;
     }
 
-    private void addRefreshEntity(String email, String refresh, Long expiredMs) {
-
-        Date date = new Date(System.currentTimeMillis() + expiredMs);
-
-        Refresh refreshEntity = new Refresh();
-        refreshEntity.setEmail(email);
-        refreshEntity.setRefresh(refresh);
-        refreshEntity.setExpiration(date.toString());
-
-        refreshRepository.save(refreshEntity);
+    private void saveRefreshToken(String email, String refresh, Long expiredMs) {
+        ValueOperations<String, String> ops = redisTemplate.opsForValue();
+        ops.set(refresh, email, expiredMs);
     }
 
-    //로그인 실패시 실행하는 메소드
+    // 로그인 실패시 실행하는 메소드
     @Override
     protected void unsuccessfulAuthentication(HttpServletRequest request,
         HttpServletResponse response, AuthenticationException failed) {

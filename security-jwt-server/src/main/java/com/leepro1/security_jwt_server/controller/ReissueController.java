@@ -1,14 +1,14 @@
 package com.leepro1.security_jwt_server.controller;
 
-import com.leepro1.security_jwt_server.entity.Refresh;
 import com.leepro1.security_jwt_server.jwt.JWTUtil;
-import com.leepro1.security_jwt_server.repository.RefreshRepository;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ReissueController {
 
     private final JWTUtil jwtUtil;
-    private final RefreshRepository refreshRepository;
+    private final StringRedisTemplate redisTemplate;
 
     @PostMapping("/reissue")
     public ResponseEntity<?> reissue(HttpServletRequest request, HttpServletResponse response) {
@@ -56,10 +56,11 @@ public class ReissueController {
             return new ResponseEntity<>("invalid refresh token", HttpStatus.BAD_REQUEST);
         }
 
-        // DB에 저장되어 있는지 확인
-        Boolean isExist = refreshRepository.existsByRefresh(refresh);
-        if (!isExist) {
+        // Check if refresh token exists in Redis
+        ValueOperations<String, String> ops = redisTemplate.opsForValue();
+        String storedRefresh = ops.get(refresh);
 
+        if (storedRefresh == null) {
             return new ResponseEntity<>("invalid refresh token", HttpStatus.BAD_REQUEST);
         }
 
@@ -70,9 +71,9 @@ public class ReissueController {
         String newAccess = jwtUtil.createJwt("access", email, role, 600000L);
         String newRefresh = jwtUtil.createJwt("refresh", email, role, 86400000L);
 
-        // Refresh 토큰 저장 DB에 기존의 Refresh 토큰 삭제 후 새 Refresh 토큰 저장
-        refreshRepository.deleteByRefresh(refresh);
-        addRefreshEntity(email, newRefresh, 86400000L);
+        // Refresh 토큰 저장: Redis에 기존의 Refresh 토큰 삭제 후 새 Refresh 토큰 저장
+        redisTemplate.delete(refresh);
+        ops.set(newRefresh, email, 86400000L);
 
         // response
         response.setHeader("access", newAccess);
@@ -90,17 +91,5 @@ public class ReissueController {
         //cookie.setPath("/");
 
         return cookie;
-    }
-
-    private void addRefreshEntity(String email, String refresh, Long expiredMs) {
-
-        Date date = new Date(System.currentTimeMillis() + expiredMs);
-
-        Refresh refreshEntity = new Refresh();
-        refreshEntity.setEmail(email);
-        refreshEntity.setRefresh(refresh);
-        refreshEntity.setExpiration(date.toString());
-
-        refreshRepository.save(refreshEntity);
     }
 }

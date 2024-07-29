@@ -1,6 +1,5 @@
 package com.leepro1.security_jwt_server.jwt;
 
-import com.leepro1.security_jwt_server.repository.RefreshRepository;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -11,13 +10,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.filter.GenericFilterBean;
 
 @RequiredArgsConstructor
 public class CustomLogoutFilter extends GenericFilterBean {
 
     private final JWTUtil jwtUtil;
-    private final RefreshRepository refreshRepository;
+    private final StringRedisTemplate redisTemplate;
 
     @Override
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse,
@@ -30,7 +30,7 @@ public class CustomLogoutFilter extends GenericFilterBean {
     private void doFilter(HttpServletRequest request, HttpServletResponse response,
         FilterChain filterChain) throws IOException, ServletException {
 
-        //path and method verify
+        // path and method verify
         String requestUri = request.getRequestURI();
         if (!requestUri.matches("^\\/logout$")) {
 
@@ -44,7 +44,7 @@ public class CustomLogoutFilter extends GenericFilterBean {
             return;
         }
 
-        //get refresh token
+        // get refresh token
         String refresh = null;
         Cookie[] cookies = request.getCookies();
         for (Cookie cookie : cookies) {
@@ -55,19 +55,19 @@ public class CustomLogoutFilter extends GenericFilterBean {
             }
         }
 
-        //refresh null check
+        // refresh null check
         if (refresh == null) {
 
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
 
-        //expired check
+        // expired check
         try {
             jwtUtil.isExpired(refresh);
         } catch (ExpiredJwtException e) {
 
-            //response status code
+            // response status code
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
@@ -76,25 +76,25 @@ public class CustomLogoutFilter extends GenericFilterBean {
         String category = jwtUtil.getCategory(refresh);
         if (!category.equals("refresh")) {
 
-            //response status code
+            // response status code
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
 
-        //DB에 저장되어 있는지 확인
-        Boolean isExist = refreshRepository.existsByRefresh(refresh);
+        // Check if refresh token exists in Redis
+        Boolean isExist = redisTemplate.hasKey(refresh);
         if (!isExist) {
 
-            //response status code
+            // response status code
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
 
-        //로그아웃 진행
-        //Refresh 토큰 DB에서 제거
-        refreshRepository.deleteByRefresh(refresh);
+        // 로그아웃 진행
+        // Refresh 토큰 Redis에서 제거
+        redisTemplate.delete(refresh);
 
-        //Refresh 토큰 Cookie 값 0
+        // Refresh 토큰 Cookie 값 0
         Cookie cookie = new Cookie("refresh", null);
         cookie.setMaxAge(0);
         cookie.setPath("/");
