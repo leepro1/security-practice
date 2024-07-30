@@ -28,15 +28,12 @@ public class ReissueController {
         String refresh = null;
         Cookie[] cookies = request.getCookies();
         for (Cookie cookie : cookies) {
-
             if (cookie.getName().equals("refresh")) {
-
                 refresh = cookie.getValue();
             }
         }
 
         if (refresh == null) {
-
             // response status code
             return new ResponseEntity<>("refresh token null", HttpStatus.BAD_REQUEST);
         }
@@ -52,7 +49,6 @@ public class ReissueController {
         String category = jwtUtil.getCategory(refresh);
 
         if (!category.equals("refresh")) {
-
             return new ResponseEntity<>("invalid refresh token", HttpStatus.BAD_REQUEST);
         }
 
@@ -77,19 +73,22 @@ public class ReissueController {
 
         // response
         response.setHeader("access", newAccess);
-        response.addCookie(createCookie("refresh", newRefresh));
+        createCookie(response, "refresh", newRefresh);
 
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
-    private Cookie createCookie(String key, String value) {
-
+    private void createCookie(HttpServletResponse response, String key, String value) {
         Cookie cookie = new Cookie(key, value);
         cookie.setMaxAge(24*60*60);
         cookie.setHttpOnly(true);
-        //cookie.setSecure(true);
-        //cookie.setPath("/");
+        cookie.setSecure(true);
+        cookie.setPath("/");
 
-        return cookie;
+        response.addCookie(cookie);
+
+        // SameSite 속성을 포함하여 쿠키 헤더를 설정
+        String cookieHeader = String.format("%s=%s; Max-Age=%d; HttpOnly; SameSite=None", key, value, 24*60*60);
+        response.addHeader("Set-Cookie", cookieHeader);
     }
 }

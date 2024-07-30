@@ -79,19 +79,22 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
 
         // 응답 설정
         response.setHeader("access", access);
-        response.addCookie(createCookie("refresh", refresh));
+        createCookie(response, "refresh", refresh);
         response.setStatus(HttpStatus.OK.value());
     }
 
-    private Cookie createCookie(String key, String value) {
-
+    private void createCookie(HttpServletResponse response, String key, String value) {
         Cookie cookie = new Cookie(key, value);
         cookie.setMaxAge(60 * 60 * 24); // 24시간
         cookie.setHttpOnly(true);
-//        cookie.setSecure(true); https 통신시
-//        cookie.setPath("/"); cookie 범위
+         cookie.setSecure(true);
+         cookie.setPath("/");
 
-        return cookie;
+        response.addCookie(cookie);
+
+        // SameSite 속성을 포함하여 쿠키 헤더를 설정
+        String cookieHeader = String.format("%s=%s; Max-Age=%d; HttpOnly; SameSite=None", key, value, 60 * 60 * 24);
+        response.addHeader("Set-Cookie", cookieHeader);
     }
 
     private void saveRefreshToken(String email, String refresh, Long expiredMs) {
